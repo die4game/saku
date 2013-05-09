@@ -112,40 +112,6 @@ class NodeError(Exception):
     pass
 
 
-class SimpleGzipFile(gzip.GzipFile):
-    '''GzipFile without EOF check.
-
-    This class based on gzip.py.
-    '''
-    def _read(self, size=1024):
-        if self.fileobj is None:
-            raise EOFError, "Reached EOF"
-
-        if self._new_member:
-            self._init_read()
-            self._read_gzip_header()
-            self.decompress = zlib.decompressobj(-zlib.MAX_WBITS)
-            self._new_member = False
-
-        buf = self.fileobj.read(size)
-        if buf == "":
-            uncompress = self.decompress.flush()
-            self._read_eof()
-            self._add_read_data( uncompress )
-            raise EOFError, 'Reached EOF'
-
-        uncompress = self.decompress.decompress(buf)
-        self._add_read_data( uncompress )
-
-        if self.decompress.unused_data != "":
-            raise EOFError, "Reached EOF"
-
-    def _read_eof(self):
-        raise EOFError, "Reached EOF"
-
-# End of SimpleGzipFile
-
-
 class SocketIO:
     '''Wrapper for SimpleGzipFile and URLopener.
     '''
@@ -216,7 +182,8 @@ class Node:
             return StringIO('')
 
         if res.info().getheader("Content-Encoding", "") == "gzip":
-            return SocketIO(SimpleGzipFile(fileobj=res), message)
+            buffer = StringIO(res.read())
+            return SocketIO(gzip.GzipFile(fileobj=buffer), message)
         else:
             return SocketIO(res, message)
 
